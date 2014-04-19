@@ -1,0 +1,70 @@
+Step 3: simpledb.Parser.handleQueryStatement()
+
+    1. This method will first create the logical plan of the query argument, by calling Parser.parseQueryLogicalPlan (LogicalPlan lp = parseQueryLogicalPlan(tId, s);)
+    2. It will then create a physicalPlan from the logical plan by calling LogicalPlan.physicalPlan on newly created logical plan (DbIterator physicalPlan = lp.physicalPlan(tId, TableStats.getStatsMap(), explain);)
+    3. After setting the two plans to the query, it will invoke the query
+
+Step 4: simpledb.Parser.parseQueryLogicalPlan()
+
+    1. This method will create a new LogicalPlan instance (LogicalPlan lp = new LogicalPlan();) and then set the query argument to the query instance variable of the newly created LogicalPlan instance (lp.setQuery(q.toString());)
+    2. It will also determine which tables are referenced in the "from" statement from the query and add a scan to the logical plan for each one of these tables (Vector<ZFromItem> from = q.getFrom(); lp.addScan(id, name);)
+    3. Finally it will return this LogicalPlan instance
+
+Step 5: simpledb.LogicalPlan.PhysicalPlan()
+
+    1. This method will save a sequential scan of each of the tables from the LogicalPlan instance
+    2. For each filter in the query where clause, the method will generate a predicate and store it with a key that associates with a sequential scan that was stored in question 1
+    3. The method will also generate the estimated selectivity of the filter and store it with the same key
+    4. A new instance of the JoinOptimizer class will be created and the order of the optimal join will be produced (jo.orderJoins(statsMap,filterSelectivities,explain);)
+    5. The joins generated in step 4 will be executed in the specified order (j = jo.instantiateJoin(lj,plan1,plan2);)
+    6. The result will then be run through the query's selector so that only specified attributes will be outputted
+    7. The result will then be aggregated and ordered if specified by the query
+
+6.1: (dataset .001)
+
+The query plan is:
+                                                 π(d.fname,d.lname),card:91
+                                                  |
+                                                 ⨝(m.did=d.id),card:91
+                               ___________________|____________________
+                               |                                      |
+                              ⨝(c.mid=m.mid),card:278               |
+                _______________|_______________                       |
+                |                             |                       |
+               ⨝(a.id=c.pid),card:2005      |                       |
+  ______________|_______________              |                       |
+  |                            |              |                       |
+ σ(a.lname=Spicer),card:11    |              |                       |
+  |                            |              |                       |
+ σ(a.fname=John),card:81      |              |                       |
+  |                            |            scan(Movie_Director m)    |
+scan(Actor a)                scan(Casts c)                          scan(Director d)
+
+The goal of the query is to return the first and last names of all directors that have directed a movie with an actor named "John Spicer". Our optimizer generates this plan by determining, at each level, the join with the smallest resulting cardinality of all relations to join. The filtered Actor table and Casts table had the smallest estimated resulting cardinality and was thus joined first. Then the result was join with the Movie_Director table because this cardinality was estimated to be smaller than any other possible join by our algorithm. Finally we joined the Director table because it was the only one left and selected out the fields of interest.
+
+6.2:
+
+select d.fname, d.lname
+from Actor a, Casts c, Movie_Director m, Director d
+where a.id=c.pid and c.mid=m.mid and m.did=d.id 
+and a.fname='John';
+
+The query plan is:
+                                               π(d.fname,d.lname),card:91
+                                                |
+                                               ⨝(m.did=d.id),card:91
+                             ___________________|____________________
+                             |                                      |
+                            ⨝(c.mid=m.mid),card:278               |
+               ______________|_______________                       |
+               |                            |                       |
+              ⨝(a.id=c.pid),card:2005     |                       |
+  _____________|______________              |                       |
+  |                          |              |                       |
+ σ(a.fname=John),card:81    |              |                       |
+  |                          |            scan(Movie_Director m)    |
+scan(Actor a)              scan(Casts c)                          scan(Director d)
+
+The goal of the query is to return the first and last names of all directors that have directed a movie with an actor named "John". Our optimizer generates this plan by determining, at each level, the join with the smallest resulting cardinality of all relations to join. The filtered Actor table and Casts table had the smallest estimated resulting cardinality and was thus joined first. Then the result was join with the Movie_Director table because this cardinality was estimated to be smaller than any other possible join by our algorithm. Finally we joined the Director table because it was the only one left and selected out the fields of interest.
+
+Spent ~20hrs on project 3
