@@ -56,12 +56,12 @@ public class BufferPool {
 	 * @param perm the requested permissions on the page
 	 * @throws IOException 
 	 */
-	public Page getPage(TransactionId tid, PageId pid, Permissions perm)
+	public synchronized Page getPage(TransactionId tid, PageId pid, Permissions perm)
 			throws TransactionAbortedException, DbException{
 		// some code goes here
 		this.lockManager.acquireLock(pid, tid, perm);
 		
-		if(this.pages.get(pid) != null) {
+		if(this.pages.containsKey(pid)) {
 			this.orderedPageIds.remove(pid);
 			this.orderedPageIds.add(pid);
 			return this.pages.get(pid);
